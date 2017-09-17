@@ -1,8 +1,8 @@
-import Webgl from 'js/core/Webgl';
-import loop from 'js/core/Loop';
-import props from 'js/core/props';
-import Piano from 'js/components/Piano';
-import Box from 'js/components/Box';
+import Webgl from './js/core/Webgl';
+import loop from './js/core/Loop';
+import props from './js/core/props';
+import Piano from './js/components/Piano';
+import Box from './js/components/Box';
 
 
 // ##
