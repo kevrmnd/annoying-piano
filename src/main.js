@@ -5,6 +5,7 @@ import Webgl from './js/core/Webgl';
 import loop from './js/core/Loop';
 import Piano from './js/components/Piano';
 import Box from './js/components/Box';
+import { playClick, playTick, playLimit } from './js/core/uiSounds';
 
 
 // ##
@@ -77,6 +78,15 @@ function playMouseKey(code) {
   if (code !== null) piano.pressKey(code);
 }
 
+// Changes the octave with a tick per change; returns true if the wanted
+// octave is past the end of the wheel's range
+function changeOctave(target) {
+  const before = piano.octave;
+  piano.setOctave(target);
+  if (piano.octave !== before) playTick();
+  return piano.octave !== target;
+}
+
 function octaveTitle() {
   const o = piano.octave;
   return `Octave ${o > 0 ? '+' : ''}${o}`;
@@ -109,7 +119,7 @@ document.addEventListener('wheel', (e) => {
   // Trackpads send many small deltas: one octave per accumulated notch
   wheelScroll += e.deltaY;
   if (Math.abs(wheelScroll) >= 50) {
-    piano.setOctave(piano.octave + (wheelScroll < 0 ? 1 : -1));
+    if (changeOctave(piano.octave + (wheelScroll < 0 ? 1 : -1))) playLimit();
     wheelScroll = 0;
     webgl.dom.title = octaveTitle();
   }
@@ -123,7 +133,10 @@ window.addEventListener('pointermove', (e) => {
   }
   if (!wheelDrag) return;
   const steps = Math.round((wheelDrag.y - e.clientY) / WHEEL_DRAG_STEP);
-  piano.setOctave(wheelDrag.octave + steps);
+  const atLimit = changeOctave(wheelDrag.octave + steps);
+  // knock once when the drag goes past the end, not on every move
+  if (atLimit && !wheelDrag.atLimit) playLimit();
+  wheelDrag.atLimit = atLimit;
 });
 
 function endPointer() {
@@ -155,7 +168,10 @@ webgl.dom.addEventListener('pointerup', (e) => {
   downAt = null;
   if (moved > 5) return;
   const id = buttonUnder(e);
-  if (id) piano.setSound(id);
+  if (id) {
+    playClick();
+    piano.setSound(id);
+  }
 });
 
 webgl.dom.addEventListener('pointermove', (e) => {
