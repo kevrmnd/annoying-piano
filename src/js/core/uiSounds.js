@@ -57,11 +57,13 @@ export function playClick() {
   voices.thock.triggerAttackRelease('G2', 0.07, t);
 }
 
-export function playTick() {
+// soft: much quieter, for controls turned quickly (tempo knob)
+export function playTick(soft = false) {
   if (!ready()) return;
   const t = when();
-  voices.tickNoise.triggerAttackRelease(0.012, t);
-  voices.tickTone.triggerAttackRelease(2200, 0.025, t);
+  const velocity = soft ? 0.3 : 1;
+  voices.tickNoise.triggerAttackRelease(0.012, t, velocity);
+  voices.tickTone.triggerAttackRelease(2200, 0.025, t, velocity);
 }
 
 // End of the wheel's range: a duller knock

@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import SOUNDS from '../core/sounds';
 
 // Column of small square rubber keys on the side of the piano keys, no text:
-// each cap has its sound's color, dimmed until the key is pressed
+// gray caps, the pressed (selected) one in pink
 const SIZE = 0.38;
 const KEY_H = 0.12;
 const BASE_MARGIN = 0.08;
@@ -14,13 +14,7 @@ const SPACING = 0.5;
 const UP_Y = BASE_H + 0.1 - KEY_H / 2;
 const DOWN_Y = BASE_H + 0.012 - KEY_H / 2;
 
-const RUBBER = 0x2a2a2d;
-// How much of the sound's color shows on the cap, mixed with the rubber color
-const BRIGHTNESS = { off: 0.5, hover: 0.72, on: 1 };
-
-function capColor(color, state) {
-  return new THREE.Color(color).lerp(new THREE.Color(RUBBER), 1 - BRIGHTNESS[state]);
-}
+const CAP = { off: 0x55555a, hover: 0x75757b, on: 0xff4f7b };
 
 class SoundSelector extends THREE.Object3D {
   constructor() {
@@ -42,7 +36,7 @@ class SoundSelector extends THREE.Object3D {
       base.position.y = BASE_H / 2;
       group.add(base);
 
-      const capMaterial = new THREE.MeshLambertMaterial({ color: capColor(sound.color, 'off') });
+      const capMaterial = new THREE.MeshLambertMaterial({ color: CAP.off });
       const key = new THREE.Mesh(keyGeometry, [
         sideMaterial, sideMaterial, capMaterial, sideMaterial, sideMaterial, sideMaterial,
       ]);
@@ -53,7 +47,7 @@ class SoundSelector extends THREE.Object3D {
       key.userData.soundId = sound.id;
 
       this.keys.push({
-        id: sound.id, label: sound.label, color: sound.color, group, key, capMaterial,
+        id: sound.id, label: sound.label, group, key, capMaterial,
       });
       this.add(group);
     });
@@ -64,7 +58,7 @@ class SoundSelector extends THREE.Object3D {
     let state = 'off';
     if (pressed) state = 'on';
     else if (k.id === this.hovered) state = 'hover';
-    k.capMaterial.color.copy(capColor(k.color, state));
+    k.capMaterial.color.set(CAP[state]);
     k.key.position.y = pressed ? DOWN_Y : UP_Y;
   }
 
