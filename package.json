@@ -15,12 +15,12 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "three": "0.81.2",
-    "three-js-csg": "72.0.0",
-    "three-orbit-controls": "82.1.0",
-    "tone": "0.10.0"
+    "three": "^0.187.0",
+    "three-bvh-csg": "^0.0.19",
+    "three-mesh-bvh": "^0.10.0",
+    "tone": "^15.1.22"
   },
   "devDependencies": {
-    "vite": "^7.0.0"
+    "vite": "^8.4.0"
   }
 }

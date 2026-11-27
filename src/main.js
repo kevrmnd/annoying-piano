@@ -15,12 +15,12 @@ loop.add(webgl.onUpdate);
 
 // ##
 // EXAMPLE LIGHT
-const light = new THREE.DirectionalLight(0xffffff, 0.5);
+const light = new THREE.DirectionalLight(0xffffff, 0.5 * Math.PI);
 light.position.set(0, 2, 1);
 light.castShadow = true;
 webgl.add(light);
 
-const ambient_light = new THREE.AmbientLight(0xffffff, 0.5);
+const ambient_light = new THREE.AmbientLight(0xffffff, 0.5 * Math.PI);
 webgl.add(ambient_light);
 
 // ##
