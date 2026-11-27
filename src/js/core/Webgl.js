@@ -7,7 +7,6 @@ THREE.ColorManagement.enabled = false;
 export default class Webgl {
   constructor(w, h) {
     this.scene = new THREE.Scene();
-    this.scene.fog = new THREE.Fog(0xf2f2f2, 6, 30);
 
     this.camera = new THREE.PerspectiveCamera(50, w / h, 1, 1000);
     this.camera.position.z = 10;
