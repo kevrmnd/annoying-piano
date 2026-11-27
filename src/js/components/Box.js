@@ -7,7 +7,7 @@ class Box extends THREE.Object3D {
     // INIT
     const boxMaterial = new THREE.MeshLambertMaterial({
       color: color,
-      shading: THREE.FlatShading,
+      flatShading: true,
     });
     // - object
     const boxGeometry = new THREE.BoxGeometry(width, height, depth);

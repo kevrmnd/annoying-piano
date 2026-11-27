@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import threeOrbitControls from 'three-orbit-controls';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-const OrbitControls = threeOrbitControls(THREE);
+// Keep the original look: colors and lighting as in Three.js r81
+THREE.ColorManagement.enabled = false;
 
 export default class Webgl {
   constructor(w, h) {
@@ -12,16 +13,16 @@ export default class Webgl {
     this.camera.position.z = 10;
     this.camera.position.y = 6;
 
-    const controls = new OrbitControls(this.camera);
-
     this._renderer = new THREE.WebGLRenderer({
       antialias: true,
     });
     this._renderer.setPixelRatio(window.devicePixelRatio);
     this._renderer.setClearColor(0xf2f2f2);
+    this._renderer.outputColorSpace = THREE.LinearSRGBColorSpace;
     // this._renderer.shadowMap.enabled = true;
     
     this.dom = this._renderer.domElement;
+    this.controls = new OrbitControls(this.camera, this.dom);
 
     this.usePostprocessing = false;
     this._composer = false;

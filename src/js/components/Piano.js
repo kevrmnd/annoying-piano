@@ -1,8 +1,6 @@
 import * as THREE from 'three';
-import threeCSG from 'three-js-csg';
-import Tone from 'tone';
-
-const ThreeBSP = threeCSG(THREE);
+import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
+import * as Tone from 'tone';
 var playingKey = false;
 var playedKey = false;
 
@@ -16,23 +14,24 @@ class Piano extends THREE.Object3D {
     // - material body
     const bodyMaterial = new THREE.MeshLambertMaterial({
         color: 0x444444,
-        shading: THREE.FlatShading,
+        flatShading: true,
         transparent: true, 
         // opacity: 0.5
     });
     // - rectangle body
-    const bodyGeometry = new THREE.BoxGeometry(9, 1, 5);
-    const bodyMesh = new THREE.Mesh(bodyGeometry);
-    const bodyBSP = new ThreeBSP(bodyMesh);
+    const bodyBrush = new Brush(new THREE.BoxGeometry(9, 1, 5));
+    bodyBrush.updateMatrixWorld();
     // - extrude body
-    const extrudeGeometry = new THREE.BoxGeometry(7, 0.7, 3.5);
-    const extrudeMesh = new THREE.Mesh(extrudeGeometry);
-    extrudeMesh.position.y = 0.15;
-    extrudeMesh.position.z = 0.75;
-    const extrudeBSP = new ThreeBSP(extrudeMesh);
+    // Same cavity as before (y -0.2 to 0.5, z -1 to 2.5), extended past the
+    // top and front faces so the CSG doesn't deal with coplanar faces
+    const extrudeBrush = new Brush(new THREE.BoxGeometry(7, 1, 4));
+    extrudeBrush.position.y = 0.3;
+    extrudeBrush.position.z = 1;
+    extrudeBrush.updateMatrixWorld();
     // - extrude it
-    const bodySubMesh = bodyBSP.subtract(extrudeBSP);
-    this.bodyMesh = bodySubMesh.toMesh();
+    const evaluator = new Evaluator();
+    evaluator.attributes = ['position', 'normal'];
+    this.bodyMesh = evaluator.evaluate(bodyBrush, extrudeBrush, SUBTRACTION);
     // - add material
     this.bodyMesh.material = bodyMaterial;
     this.add(this.bodyMesh);
@@ -42,13 +41,13 @@ class Piano extends THREE.Object3D {
     // - material
     const keyMaterial = new THREE.MeshLambertMaterial({
         color: 0xffffff,
-        shading: THREE.FlatShading,
+        flatShading: true,
         transparent: true, 
         // opacity: 0.5
     });
     const keyLightMaterial = new THREE.MeshLambertMaterial({
         color: 0x90d7ff,
-        shading: THREE.FlatShading,
+        flatShading: true,
         transparent: true, 
         // opacity: 0.5
     });
@@ -69,13 +68,13 @@ class Piano extends THREE.Object3D {
     // - material
     const blackKeyMaterial = new THREE.MeshLambertMaterial({
         color: 0x111111,
-        shading: THREE.FlatShading,
+        flatShading: true,
         transparent: true, 
         // opacity: 0.5
     });
     const blackKeyLightMaterial = new THREE.MeshLambertMaterial({
         color: 0x153345,
-        shading: THREE.FlatShading,
+        flatShading: true,
         transparent: true, 
         // opacity: 0.5
     });
@@ -102,13 +101,13 @@ class Piano extends THREE.Object3D {
     // ##
     // SYNTH  
     this.activated = false;
-    this.synth = new Tone.PolySynth().toMaster();
+    this.synth = new Tone.PolySynth(Tone.Synth).toDestination();
     this.synth.set({
         oscillator:{
             type:'sawtooth'
         },
-        volume: -10,
     });
+    this.synth.volume.value = -10;
 
     // ##
     // KEYS
@@ -167,8 +166,8 @@ class Piano extends THREE.Object3D {
     window.onkeydown = function (e) {
         var code = e.keyCode ? e.keyCode : e.which;
         // Browsers start audio suspended until a user gesture
-        if (Tone.context.state === 'suspended') {
-            Tone.context.resume();
+        if (Tone.getContext().state !== 'running') {
+            Tone.start();
         }
         if(_this.keys[code] && _this.keyDown.indexOf(code) == -1){
             // si la touche correspond au clavier && que la touche n'est pas dans this.keyDown
