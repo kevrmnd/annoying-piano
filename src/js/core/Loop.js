@@ -49,4 +49,4 @@ class Loop {
   }
 }
 
-module.exports = new Loop();
+export default new Loop();

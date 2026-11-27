@@ -1,4 +1,7 @@
-const OrbitControls = require('three-orbit-controls')(THREE);
+import * as THREE from 'three';
+import threeOrbitControls from 'three-orbit-controls';
+
+const OrbitControls = threeOrbitControls(THREE);
 
 export default class Webgl {
   constructor(w, h) {

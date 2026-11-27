@@ -1,11 +1,22 @@
 # Annoying piano
 
-A simple piano (synth) with an annoying sound. Made width [Three.js](http://threejs.org/) and [Tone.js](https://tonejs.github.io/).
+A simple piano (synth) with an annoying sound. Made with [Three.js](http://threejs.org/) and [Tone.js](https://tonejs.github.io/).
 
 ## Demo
 
 Check the [demo](https://kevrmnd.github.io/annoying-piano/).
 
-## Brunch app
+## Development
 
-This brunch app use a skeleton for starting a project in **WebGL** with [Three.js](http://threejs.org/).  check the skeleton and how to use [here](https://github.com/jeremboo/brunch-threejs-es2015).
+Built with [Vite](https://vite.dev/). Requires Node.js 20.19+ or 22.12+.
+
+```sh
+npm install
+npm run dev      # dev server with hot reload
+npm run build    # production build in dist/
+npm run preview  # serve the production build locally
+```
+
+Static images live in `app/assets/`. The build uses relative paths, so the content of `dist/` can be published as is on the `gh-pages` branch.
+
+Note: `three` and `tone` are pinned to their original 2016 versions (0.81 and 0.10). `three-js-csg`, used to carve the piano body, relies on `THREE.Geometry`, which was removed from recent Three.js versions.
