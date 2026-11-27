@@ -5,7 +5,11 @@ import Webgl from './js/core/Webgl';
 import loop from './js/core/Loop';
 import Piano from './js/components/Piano';
 import Box from './js/components/Box';
+import DrumMachine from './js/components/DrumMachine';
+import Speaker from './js/components/Speaker';
 import { playClick, playTick, playLimit } from './js/core/uiSounds';
+import * as drums from './js/core/drums';
+import { TRACKS } from './js/core/drums';
 
 
 // ##
@@ -36,16 +40,33 @@ const piano = new Piano();
 webgl.add(piano);
 
 // ##
+// DRUM MACHINE, centered on the strip behind the keys, between two speakers
+[-3.72, 3.72].forEach((x) => {
+  const speaker = new Speaker();
+  speaker.position.set(x, 0.5, -1.75);
+  piano.add(speaker);
+});
+const drumMachine = new DrumMachine();
+drumMachine.position.y = 0.5; // its parts are placed in piano space
+piano.add(drumMachine);
+drums.onStep((step) => drumMachine.setStep(step));
+loop.add(() => drumMachine.update());
+
+// ##
 // CONTROLS
 // - sound buttons (left of the keys): click to pick a sound (a drag still rotates the camera)
 // - octave wheel (right of the keys): drag it up or down, or scroll over it
 // - piano keys: press with the mouse, slide across them for a glissando
+// - drum machine: click a cell on the screen to toggle it (silent), play key
+//   to start / stop the loop, tempo knob: drag it up or down or scroll over it
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
 const WHEEL_DRAG_STEP = 40; // pixels per octave
 let downAt = null;
 let wheelDrag = null;
 let wheelScroll = 0;
+let tempoDrag = null;
+let tempoScroll = 0;
 let mouseKeys = false; // mouse button held down on the keys
 let mouseKey = null; // key played by the mouse
 
@@ -64,6 +85,33 @@ function buttonUnder(e) {
 function wheelUnder(e) {
   aim(e);
   return piano.wheel.pick(raycaster);
+}
+
+function drumUnder(e) {
+  aim(e);
+  return drumMachine.pick(raycaster);
+}
+
+// Soft tick, at most every 45 ms so a fast scroll doesn't rattle
+let lastTempoTick = 0;
+function changeTempo(target) {
+  const before = drums.getBpm();
+  const bpm = drums.setBpm(target);
+  if (bpm !== before) {
+    const now = performance.now();
+    if (now - lastTempoTick > 45) {
+      playTick(true);
+      lastTempoTick = now;
+    }
+    drumMachine.setBpm(bpm);
+  }
+}
+
+function drumTitle(target) {
+  if (target.type === 'play') return drums.isPlaying() ? 'Stop' : 'Lecture';
+  if (target.type === 'tempo') return `Tempo ${drums.getBpm()} BPM`;
+  const track = TRACKS.find((t) => t.id === target.track);
+  return `${track.label} · pas ${target.step + 1}`;
 }
 
 function keyUnder(e) {
@@ -101,6 +149,12 @@ document.addEventListener('pointerdown', (e) => {
     wheelDrag = { y: e.clientY, octave: piano.octave };
     return;
   }
+  const drum = drumUnder(e);
+  if (drum && drum.type === 'tempo') {
+    webgl.controls.enabled = false;
+    tempoDrag = { y: e.clientY, bpm: drums.getBpm() };
+    return;
+  }
   const code = keyUnder(e);
   if (code !== null) {
     webgl.controls.enabled = false;
@@ -113,6 +167,20 @@ document.addEventListener('pointerdown', (e) => {
 }, { capture: true });
 
 document.addEventListener('wheel', (e) => {
+  if (e.target === webgl.dom) {
+    const drum = drumUnder(e);
+    if (drum && drum.type === 'tempo') {
+      e.preventDefault();
+      e.stopPropagation(); // no camera zoom
+      tempoScroll += e.deltaY;
+      if (Math.abs(tempoScroll) >= 50) {
+        changeTempo(drums.getBpm() + (tempoScroll < 0 ? 2 : -2));
+        tempoScroll = 0;
+        webgl.dom.title = drumTitle(drum);
+      }
+      return;
+    }
+  }
   if (e.target !== webgl.dom || !wheelUnder(e)) return;
   e.preventDefault();
   e.stopPropagation(); // no camera zoom
@@ -126,6 +194,11 @@ document.addEventListener('wheel', (e) => {
 }, { capture: true, passive: false });
 
 window.addEventListener('pointermove', (e) => {
+  if (tempoDrag) {
+    // 1 BPM per 4 pixels, up is faster
+    changeTempo(tempoDrag.bpm + Math.round((tempoDrag.y - e.clientY) / 4));
+    return;
+  }
   if (mouseKeys) {
     // Glissando: the note follows the pointer, silence outside the keys
     playMouseKey(e.target === webgl.dom ? keyUnder(e) : null);
@@ -147,6 +220,10 @@ function endPointer() {
   }
   if (wheelDrag) {
     wheelDrag = null;
+    webgl.controls.enabled = true;
+  }
+  if (tempoDrag) {
+    tempoDrag = null;
     webgl.controls.enabled = true;
   }
 }
@@ -171,18 +248,39 @@ webgl.dom.addEventListener('pointerup', (e) => {
   if (id) {
     playClick();
     piano.setSound(id);
+    return;
+  }
+  const drum = drumUnder(e);
+  if (drum && drum.type === 'cell') {
+    drums.toggleStep(drum.track, drum.step);
+    drumMachine.draw();
+  } else if (drum && drum.type === 'play') {
+    playClick();
+    if (drums.isPlaying()) {
+      drums.stop();
+      drumMachine.setPlaying(false);
+    } else {
+      Tone.start().then(() => drums.play());
+      drumMachine.setPlaying(true);
+    }
+    webgl.dom.title = drumTitle(drum);
   }
 });
 
 webgl.dom.addEventListener('pointermove', (e) => {
-  if (wheelDrag) {
+  if (wheelDrag || tempoDrag) {
     webgl.dom.style.cursor = 'ns-resize';
     webgl.dom.title = '';
     return;
   }
   const id = buttonUnder(e);
   piano.selector.hover(id);
-  if (id) {
+  const drum = id ? null : drumUnder(e);
+  drumMachine.hover(drum);
+  if (drum) {
+    webgl.dom.style.cursor = drum.type === 'tempo' ? 'ns-resize' : 'pointer';
+    webgl.dom.title = drumTitle(drum);
+  } else if (id) {
     webgl.dom.style.cursor = 'pointer';
     webgl.dom.title = piano.selector.label(id);
   } else if (keyUnder(e) !== null) {
