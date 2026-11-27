@@ -1,4 +1,4 @@
-import props from 'js/core/props';
+import * as THREE from 'three';
 
 class Box extends THREE.Object3D {
   constructor(color, width, height, depth) {
@@ -28,4 +28,4 @@ class Box extends THREE.Object3D {
   }
 }
 
-module.exports = Box;
+export default Box;

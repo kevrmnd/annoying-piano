@@ -1,6 +1,8 @@
-import props from 'js/core/props';
-const ThreeBSP = require('three-js-csg')(THREE);
-const Tone = require('tone');
+import * as THREE from 'three';
+import threeCSG from 'three-js-csg';
+import Tone from 'tone';
+
+const ThreeBSP = threeCSG(THREE);
 var playingKey = false;
 var playedKey = false;
 
@@ -164,6 +166,10 @@ class Piano extends THREE.Object3D {
     // - key down
     window.onkeydown = function (e) {
         var code = e.keyCode ? e.keyCode : e.which;
+        // Browsers start audio suspended until a user gesture
+        if (Tone.context.state === 'suspended') {
+            Tone.context.resume();
+        }
         if(_this.keys[code] && _this.keyDown.indexOf(code) == -1){
             // si la touche correspond au clavier && que la touche n'est pas dans this.keyDown
             _this.keyDown.push(code);
@@ -209,4 +215,4 @@ class Piano extends THREE.Object3D {
 
 }
 
-module.exports = Piano;
+export default Piano;
