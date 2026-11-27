@@ -17,6 +17,8 @@ npm run build    # production build in dist/
 npm run preview  # serve the production build locally
 ```
 
-Static images live in `app/assets/`. The build uses relative paths, so the content of `dist/` can be published as is on the `gh-pages` branch.
+Static images live in `app/assets/`.
 
-Note: `three` and `tone` are pinned to their original 2016 versions (0.81 and 0.10). `three-js-csg`, used to carve the piano body, relies on `THREE.Geometry`, which was removed from recent Three.js versions.
+## Deployment
+
+Each push to `master` builds the project and publishes `dist/` to the `gh-pages` branch (see `.github/workflows/deploy.yml`). It can also be run by hand from the Actions tab.
