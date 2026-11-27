@@ -5,6 +5,7 @@ import Webgl from './js/core/Webgl';
 import loop from './js/core/Loop';
 import Piano from './js/components/Piano';
 import Box from './js/components/Box';
+import addWorldFog from './js/core/worldFog';
 import DrumMachine from './js/components/DrumMachine';
 import Speaker from './js/components/Speaker';
 import { playClick, playTick, playLimit } from './js/core/uiSounds';
@@ -31,7 +32,9 @@ webgl.add(ambient_light);
 
 // ##
 // GROUND
-const ground = new Box(0xdddddd, 60, 0.1, 60);
+const ground = new Box(0xdddddd, 120, 0.1, 120);
+// The ground fades into the background around the piano, whatever the zoom
+addWorldFog(ground.boxMesh.material, { color: 0xf2f2f2, near: 12, far: 45 });
 webgl.add(ground);
 
 // ##
