@@ -1,9 +1,11 @@
 import * as THREE from 'three';
+import * as Tone from 'tone';
 import './style.css';
 import Webgl from './js/core/Webgl';
 import loop from './js/core/Loop';
 import Piano from './js/components/Piano';
 import Box from './js/components/Box';
+import { playClick, playTick, playLimit } from './js/core/uiSounds';
 
 
 // ##
@@ -32,6 +34,170 @@ webgl.add(ground);
 // PIANO
 const piano = new Piano();
 webgl.add(piano);
+
+// ##
+// CONTROLS
+// - sound buttons (left of the keys): click to pick a sound (a drag still rotates the camera)
+// - octave wheel (right of the keys): drag it up or down, or scroll over it
+// - piano keys: press with the mouse, slide across them for a glissando
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+const WHEEL_DRAG_STEP = 40; // pixels per octave
+let downAt = null;
+let wheelDrag = null;
+let wheelScroll = 0;
+let mouseKeys = false; // mouse button held down on the keys
+let mouseKey = null; // key played by the mouse
+
+function aim(e) {
+  const rect = webgl.dom.getBoundingClientRect();
+  pointer.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+  pointer.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+  raycaster.setFromCamera(pointer, webgl.camera);
+}
+
+function buttonUnder(e) {
+  aim(e);
+  return piano.selector.pick(raycaster);
+}
+
+function wheelUnder(e) {
+  aim(e);
+  return piano.wheel.pick(raycaster);
+}
+
+function keyUnder(e) {
+  aim(e);
+  return piano.pickKey(raycaster);
+}
+
+function playMouseKey(code) {
+  if (code === mouseKey) return;
+  if (mouseKey !== null) piano.releaseKey(mouseKey);
+  mouseKey = code;
+  if (code !== null) piano.pressKey(code);
+}
+
+// Changes the octave with a tick per change; returns true if the wanted
+// octave is past the end of the wheel's range
+function changeOctave(target) {
+  const before = piano.octave;
+  piano.setOctave(target);
+  if (piano.octave !== before) playTick();
+  return piano.octave !== target;
+}
+
+function octaveTitle() {
+  const o = piano.octave;
+  return `Octave ${o > 0 ? '+' : ''}${o}`;
+}
+
+// Capture phase on the page: runs before the camera controls see the event,
+// so pressing a key or the wheel doesn't rotate the camera
+document.addEventListener('pointerdown', (e) => {
+  if (e.target !== webgl.dom || e.button !== 0) return;
+  if (wheelUnder(e)) {
+    webgl.controls.enabled = false;
+    wheelDrag = { y: e.clientY, octave: piano.octave };
+    return;
+  }
+  const code = keyUnder(e);
+  if (code !== null) {
+    webgl.controls.enabled = false;
+    if (Tone.getContext().state !== 'running') {
+      Tone.start();
+    }
+    mouseKeys = true;
+    playMouseKey(code);
+  }
+}, { capture: true });
+
+document.addEventListener('wheel', (e) => {
+  if (e.target !== webgl.dom || !wheelUnder(e)) return;
+  e.preventDefault();
+  e.stopPropagation(); // no camera zoom
+  // Trackpads send many small deltas: one octave per accumulated notch
+  wheelScroll += e.deltaY;
+  if (Math.abs(wheelScroll) >= 50) {
+    if (changeOctave(piano.octave + (wheelScroll < 0 ? 1 : -1))) playLimit();
+    wheelScroll = 0;
+    webgl.dom.title = octaveTitle();
+  }
+}, { capture: true, passive: false });
+
+window.addEventListener('pointermove', (e) => {
+  if (mouseKeys) {
+    // Glissando: the note follows the pointer, silence outside the keys
+    playMouseKey(e.target === webgl.dom ? keyUnder(e) : null);
+    return;
+  }
+  if (!wheelDrag) return;
+  const steps = Math.round((wheelDrag.y - e.clientY) / WHEEL_DRAG_STEP);
+  const atLimit = changeOctave(wheelDrag.octave + steps);
+  // knock once when the drag goes past the end, not on every move
+  if (atLimit && !wheelDrag.atLimit) playLimit();
+  wheelDrag.atLimit = atLimit;
+});
+
+function endPointer() {
+  if (mouseKeys) {
+    mouseKeys = false;
+    playMouseKey(null);
+    webgl.controls.enabled = true;
+  }
+  if (wheelDrag) {
+    wheelDrag = null;
+    webgl.controls.enabled = true;
+  }
+}
+window.addEventListener('pointerup', endPointer);
+window.addEventListener('pointercancel', endPointer);
+window.addEventListener('blur', endPointer);
+
+webgl.dom.addEventListener('pointerdown', (e) => {
+  downAt = { x: e.clientX, y: e.clientY };
+  // Browsers start audio suspended until a user gesture
+  if (Tone.getContext().state !== 'running') {
+    Tone.start();
+  }
+});
+
+webgl.dom.addEventListener('pointerup', (e) => {
+  if (!downAt) return;
+  const moved = Math.hypot(e.clientX - downAt.x, e.clientY - downAt.y);
+  downAt = null;
+  if (moved > 5) return;
+  const id = buttonUnder(e);
+  if (id) {
+    playClick();
+    piano.setSound(id);
+  }
+});
+
+webgl.dom.addEventListener('pointermove', (e) => {
+  if (wheelDrag) {
+    webgl.dom.style.cursor = 'ns-resize';
+    webgl.dom.title = '';
+    return;
+  }
+  const id = buttonUnder(e);
+  piano.selector.hover(id);
+  if (id) {
+    webgl.dom.style.cursor = 'pointer';
+    webgl.dom.title = piano.selector.label(id);
+  } else if (keyUnder(e) !== null) {
+    webgl.dom.style.cursor = 'pointer';
+    webgl.dom.title = '';
+  } else if (wheelUnder(e)) {
+    webgl.dom.style.cursor = 'ns-resize';
+    webgl.dom.title = octaveTitle();
+  } else {
+    webgl.dom.style.cursor = '';
+    webgl.dom.title = '';
+  }
+});
+
+loop.add(() => piano.wheel.update());
 
 // ##
 // RENDERER
