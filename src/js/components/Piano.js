@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import { Brush, Evaluator, SUBTRACTION } from 'three-bvh-csg';
 import * as Tone from 'tone';
+import SoundSelector from './SoundSelector';
+import OctaveWheel, { MIN_OCTAVE, MAX_OCTAVE } from './OctaveWheel';
+import { DEFAULT_SOUND, getSynth, getVoicing } from '../core/sounds';
 var playingKey = false;
 var playedKey = false;
 
@@ -99,15 +102,19 @@ class Piano extends THREE.Object3D {
     this.position.y = 0.5;
     
     // ##
-    // SYNTH  
-    this.activated = false;
-    this.synth = new Tone.PolySynth(Tone.Synth).toDestination();
-    this.synth.set({
-        oscillator:{
-            type:'sawtooth'
-        },
-    });
-    this.synth.volume.value = -10;
+    // CONTROLS on the sides of the keys (the strip behind them stays free):
+    // sound buttons on the left, octave wheel on the right
+    this.selector = new SoundSelector();
+    this.selector.position.set(-4, 0.5, 0.75);
+    this.add(this.selector);
+
+    this.wheel = new OctaveWheel();
+    this.wheel.position.set(3.85, 0.5, 0.75);
+    this.add(this.wheel);
+
+    this.sound = null;
+    this.octave = 0;
+    this.setSound(DEFAULT_SOUND);
 
     // ##
     // KEYS
@@ -172,7 +179,7 @@ class Piano extends THREE.Object3D {
         if(_this.keys[code] && _this.keyDown.indexOf(code) == -1){
             // si la touche correspond au clavier && que la touche n'est pas dans this.keyDown
             _this.keyDown.push(code);
-            _this.synth.triggerAttack(_this.keys[code].tone);
+            _this.synth.triggerAttack(_this.notes(code));
             // mouvement touche
             var key = _this.keys[code].key;
             if(key <= 6){
@@ -194,7 +201,7 @@ class Piano extends THREE.Object3D {
         if(_this.keys[code] && _this.keyDown.indexOf(code) != -1){
             // si la touche correspond au clavier && que la touche est dans this.keyDown
             _this.keyDown.splice(_this.keyDown.indexOf(code), 1);
-            _this.synth.triggerRelease(_this.keys[code].tone);
+            _this.synth.triggerRelease(_this.notes(code));
             // mouvement touche
             var key = _this.keys[code].key;
             if(key <= 6){
@@ -210,6 +217,36 @@ class Piano extends THREE.Object3D {
         }
     };
 
+  }
+
+  // Notes played by a keyboard key with the current sound and octave
+  notes(code) {
+    return getVoicing(this.sound, this.keys[code].tone)
+      .map((note) => Tone.Frequency(note).transpose(12 * this.octave).toNote());
+  }
+
+  // Applies a sound or octave change; held keys keep playing with it
+  _retune(change) {
+    const held = this.keyDown || [];
+    if (this.synth) {
+      held.forEach((code) => this.synth.triggerRelease(this.notes(code)));
+    }
+    change();
+    this.synth = getSynth(this.sound);
+    held.forEach((code) => this.synth.triggerAttack(this.notes(code)));
+  }
+
+  setSound(id) {
+    if (id === this.sound) return;
+    this._retune(() => { this.sound = id; });
+    this.selector.select(id);
+  }
+
+  setOctave(octave) {
+    const clamped = Math.max(MIN_OCTAVE, Math.min(MAX_OCTAVE, octave));
+    if (clamped === this.octave) return;
+    this._retune(() => { this.octave = clamped; });
+    this.wheel.setOctave(clamped);
   }
 
 }
