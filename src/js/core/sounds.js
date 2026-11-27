@@ -9,7 +9,6 @@ const SOUNDS = [
   {
     id: 'bass',
     label: 'Basse',
-    color: '#a46bff',
     voicing: octaveDown,
     create() {
       const synth = new Tone.PolySynth(Tone.MonoSynth, {
@@ -28,7 +27,6 @@ const SOUNDS = [
   {
     id: 'piano',
     label: 'Piano',
-    color: '#35b8ff',
     voicing: both,
     create() {
       const reverb = new Tone.Reverb({ decay: 2.5, wet: 0.25 }).toDestination();
@@ -47,7 +45,6 @@ const SOUNDS = [
   {
     id: 'strings',
     label: 'Strings',
-    color: '#ff9a2e',
     voicing: both,
     create() {
       const reverb = new Tone.Reverb({ decay: 4, wet: 0.4 }).toDestination();
@@ -63,7 +60,6 @@ const SOUNDS = [
   {
     id: 'synth',
     label: 'Synthé',
-    color: '#ff4f7b',
     voicing: both,
     // The original annoying sound
     create() {
