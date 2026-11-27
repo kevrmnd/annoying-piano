@@ -97,6 +97,13 @@ class Piano extends THREE.Object3D {
         _this.add(this.blackKeyMeshes[i]);
     }
 
+    this.materials = {
+        white: keyMaterial,
+        whiteLight: keyLightMaterial,
+        black: blackKeyMaterial,
+        blackLight: blackKeyLightMaterial,
+    };
+
     // ##
     // ADD TO EXAMPLE OBJECT
     this.position.y = 0.5;
@@ -169,54 +176,72 @@ class Piano extends THREE.Object3D {
             tone: ['B3','B4']
         }
     };
-    // - key down
+    // Mesh of each key -> keyboard code, so the mouse can play the keys too
+    this.meshCodes = new Map();
+    Object.keys(this.keys).forEach((code) => {
+        this.meshCodes.set(this.keyMesh(this.keys[code].key), Number(code));
+    });
+
+    // - keyboard
     window.onkeydown = function (e) {
         var code = e.keyCode ? e.keyCode : e.which;
         // Browsers start audio suspended until a user gesture
         if (Tone.getContext().state !== 'running') {
             Tone.start();
         }
-        if(_this.keys[code] && _this.keyDown.indexOf(code) == -1){
-            // si la touche correspond au clavier && que la touche n'est pas dans this.keyDown
-            _this.keyDown.push(code);
-            _this.synth.triggerAttack(_this.notes(code));
-            // mouvement touche
-            var key = _this.keys[code].key;
-            if(key <= 6){
-                _this.keyMeshes[key].rotation.x = (2 * Math.PI) / 180;
-                _this.keyMeshes[key].position.y = 0.09;
-                _this.keyMeshes[key].material = keyLightMaterial;
-            }else{
-                key = key - 7;
-                _this.blackKeyMeshes[key].rotation.x = (2 * Math.PI) / 180;
-                _this.blackKeyMeshes[key].position.y = 0.36;
-                _this.blackKeyMeshes[key].material = blackKeyLightMaterial;
-            }
-            
-        }
+        _this.pressKey(code);
     };
-    // - key up
     window.onkeyup = function (e) {
         var code = e.keyCode ? e.keyCode : e.which;
-        if(_this.keys[code] && _this.keyDown.indexOf(code) != -1){
-            // si la touche correspond au clavier && que la touche est dans this.keyDown
-            _this.keyDown.splice(_this.keyDown.indexOf(code), 1);
-            _this.synth.triggerRelease(_this.notes(code));
-            // mouvement touche
-            var key = _this.keys[code].key;
-            if(key <= 6){
-                _this.keyMeshes[key].rotation.x = (0 * Math.PI) / 180;
-                _this.keyMeshes[key].position.y = 0.15;
-                _this.keyMeshes[key].material = keyMaterial;
-            }else{
-                key = key - 7;
-                _this.blackKeyMeshes[key].rotation.x = (0 * Math.PI) / 180;
-                _this.blackKeyMeshes[key].position.y = 0.4;
-                _this.blackKeyMeshes[key].material = blackKeyMaterial;
-            }
-        }
+        _this.releaseKey(code);
     };
 
+  }
+
+  // Key index 0-6: white keys, 7-11: black keys
+  keyMesh(key) {
+    return key <= 6 ? this.keyMeshes[key] : this.blackKeyMeshes[key - 7];
+  }
+
+  pressKey(code) {
+    // ignore unknown keys and keys already down
+    if (!this.keys[code] || this.keyDown.indexOf(code) !== -1) return;
+    this.keyDown.push(code);
+    this.synth.triggerAttack(this.notes(code));
+    // mouvement touche
+    const key = this.keys[code].key;
+    const mesh = this.keyMesh(key);
+    mesh.rotation.x = (2 * Math.PI) / 180;
+    if (key <= 6) {
+      mesh.position.y = 0.09;
+      mesh.material = this.materials.whiteLight;
+    } else {
+      mesh.position.y = 0.36;
+      mesh.material = this.materials.blackLight;
+    }
+  }
+
+  releaseKey(code) {
+    if (!this.keys[code] || this.keyDown.indexOf(code) === -1) return;
+    this.keyDown.splice(this.keyDown.indexOf(code), 1);
+    this.synth.triggerRelease(this.notes(code));
+    // mouvement touche
+    const key = this.keys[code].key;
+    const mesh = this.keyMesh(key);
+    mesh.rotation.x = 0;
+    if (key <= 6) {
+      mesh.position.y = 0.15;
+      mesh.material = this.materials.white;
+    } else {
+      mesh.position.y = 0.4;
+      mesh.material = this.materials.black;
+    }
+  }
+
+  // Keyboard code of the key under the raycaster, or null
+  pickKey(raycaster) {
+    const hit = raycaster.intersectObjects([...this.keyMeshes, ...this.blackKeyMeshes], false)[0];
+    return hit ? this.meshCodes.get(hit.object) : null;
   }
 
   // Notes played by a keyboard key with the current sound and octave
